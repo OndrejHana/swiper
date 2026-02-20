@@ -1,18 +1,18 @@
 import {App, PluginSettingTab, Setting} from "obsidian";
-import MyPlugin from "./main";
+import Swiper from "./main";
 
-export interface MyPluginSettings {
+export interface SwiperSettings {
 	mySetting: string;
 }
 
-export const DEFAULT_SETTINGS: MyPluginSettings = {
+export const DEFAULT_SETTINGS: SwiperSettings = {
 	mySetting: 'default'
 }
 
-export class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+export class SwiperSettingTab extends PluginSettingTab {
+	plugin: Swiper;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: Swiper) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}

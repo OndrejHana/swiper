@@ -1,8 +1,27 @@
-/*
+.display-div {
+    max-width: 20rem;
+    height: 32rem;
+    margin: 0 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: pre-wrap;
+    transform: translateX(var(--swipe-amount)) rotate(var(--rotation-amount));
+    cursor: pointer;
+    padding: 1rem;
+    border-radius: 1rem;
+    box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); 
+    border: 1 ;
+    border-color: var(--background-secondary);
+}
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+[data-action="NONE"] {
+    background-color: var(--background-secondary);
+}
 
-If your plugin does not need CSS, delete this file.
+[data-action="RIGHT"] {
+    background-color: var(--color-green);
+}
 
-*/
+[data-action="LEFT"] {
+    background-color: var(--color-red);
+}
