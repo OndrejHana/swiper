@@ -1,5 +1,4 @@
 import {
-	Notice,
 	Plugin,
 	ItemView,
 	WorkspaceLeaf,
@@ -114,53 +113,64 @@ class Note extends Component {
 	private _app: App;
 	private _note: TFile;
 	private displayDiv: HTMLElement | null;
+	private _parent: HTMLElement;
+	private onleft: (note: TFile) => void | Promise<void>;
+	private onright: (note: TFile) => void | Promise<void>;
+	private ondclick: (note: TFile) => void | Promise<void>;
 
 	constructor(
 		private initialNote: TFile,
 		private app: App,
+		private parent: HTMLElement,
+		private onleftHandler: (note: TFile) => void | Promise<void>,
+		private onrightHandler: (note: TFile) => void | Promise<void>,
+		private ondclickHandler: (note: TFile) => void | Promise<void>,
 	) {
 		super();
 		this._note = initialNote;
 		this._app = app;
+		this._parent = parent;
+		this.onleft = onleftHandler;
+		this.onright = onrightHandler;
+		this.ondclick = ondclickHandler;
 	}
 
-	public get note(): TFile {
-		return this._note;
-	}
-	public set note(value: TFile) {
-		this._note = value;
-		this.app.vault
-			.cachedRead(this._note)
-			.then((val) => this.displayDiv?.setText(val))
-			.catch(() => {});
-	}
-
-	async mount(parent: HTMLElement) {
-		this.displayDiv = parent.createDiv({
-			text: await this.app.vault.cachedRead(this._note),
+	private createCard(val: string) {
+		this.displayDiv = this._parent.createDiv({
+			text: val,
 			cls: "display-div",
 			attr: {
 				"data-action": "NONE",
 			},
 		});
+
+		this.registerDomEvent(this.displayDiv, "dblclick", () =>
+			this.ondclick(this.note),
+		);
 		this.registerDomEvent(this.displayDiv, "pointerdown", (e) => {
 			this.xStart = e.x;
 			this.yStart = e.y;
 			this.dragStart = new Date().getTime();
+			this.displayDiv?.setCssProps({
+				"--swipe-amount": "0px",
+				"--rotation-amount": "0deg",
+			});
 		});
 		this.registerDomEvent(this.displayDiv, "pointermove", (e) => {
 			if (!this.xStart || !this.dragStart || !this.yStart) {
 				return;
 			}
-			
+
 			const dx = e.x - this.xStart;
 			const t = new Date().getTime() - this.dragStart;
 			const velocity = Math.abs(dx) / t;
 			const rotation = dx * 0.05;
 
-			this.displayDiv?.style.setProperty('--swipe-amount', `${dx.toString()}px`)
-			this.displayDiv?.style.setProperty('--rotation-amount', `${rotation}deg`)
-			
+			this.displayDiv?.setCssProps({
+				"--swipe-amount": `${dx.toString()}px`,
+				"--rotation-amount": `${rotation}deg`,
+			});
+
 			if (
 				Math.abs(dx) >= SWIPE_THRESHOLD ||
 				velocity > VELOCITY_TRESHOLD
@@ -174,24 +184,55 @@ class Note extends Component {
 				this.displayDiv?.setAttr("data-action", "NONE");
 			}
 		});
-		this.registerDomEvent(this.displayDiv, "pointerup", (e) => {
+		this.registerDomEvent(this.displayDiv, "pointerup", async (e) => {
+			if (this.displayDiv?.getAttr("data-action") === "RIGHT") {
+				await this.onright(this.note);
+			}
+			if (this.displayDiv?.getAttr("data-action") === "LEFT") {
+				await this.onleft(this.note);
+			}
+
 			this.xStart = null;
 			this.yStart = null;
 			this.dragStart = null;
 			this.displayDiv?.setAttr("data-action", "NONE");
-			this.displayDiv?.style.setProperty('--swipe-amount', "0px");
-			this.displayDiv?.style.setProperty('--rotation-amount', "0deg");
-		})
+			this.displayDiv?.setCssProps({
+				"--swipe-amount": "0px",
+				"--rotation-amount": "0deg",
+			});
+		});
 		this.registerDomEvent(this.displayDiv, "pointerleave", (e) => {
 			this.xStart = null;
 			this.yStart = null;
 			this.dragStart = null;
 			this.displayDiv?.setAttr("data-action", "NONE");
-			this.displayDiv?.style.setProperty('--swipe-amount', "0px");
-			this.displayDiv?.style.setProperty('--rotation-amount', "0deg");
-		})
+			this.displayDiv?.setCssProps({
+				"--swipe-amount": "0px",
+				"--rotation-amount": "0deg",
+			});
+		});
 	}
-}	
+
+	public get note(): TFile {
+		return this._note;
+	}
+
+	public set note(value: TFile) {
+		this._note = value;
+		this.app.vault
+			.cachedRead(this._note)
+			.then((val) => {
+				this.displayDiv?.remove();
+				this.createCard(val);
+			})
+			.catch(() => {});
+	}
+
+	async mount() {
+		const content = await this.app.vault.cachedRead(this._note);
+		this.createCard(content);
+	}
+}
 
 export class SwiperView extends ItemView {
 	constructor(leaf: WorkspaceLeaf) {
@@ -208,31 +249,43 @@ export class SwiperView extends ItemView {
 
 	async onOpen() {
 		const pluginParent = this.contentEl;
-		const container = pluginParent.createDiv();
+		const container = pluginParent.createDiv({
+			cls: "container",
+		});
 		container.classList.add("plugin-container");
 		container.empty();
 		container.createEl("h4", { text: "Example view" });
 
 		const allMarkdownFiles = this.app.vault.getMarkdownFiles();
-		const folderPath = "0 Inbox";
-		const reviewNotes = allMarkdownFiles
-			.filter(
-				(file) =>
-					file.path.startsWith(folderPath + "/") ||
-					file.path === folderPath,
-			)
-			.filter((file) => {
-				const cache = this.app.metadataCache.getFileCache(file);
-				return cache?.tags?.some((tag) => "review");
-			});
+		const folderPath = "Inbox";
+		const temp = allMarkdownFiles.filter(
+			(file) =>
+				file.path.startsWith(folderPath + "/") ||
+				file.path === folderPath,
+		);
+		const reviewNotes = temp.filter((file) => {
+			const cache = this.app.metadataCache.getFileCache(file);
+			return cache?.tags?.some((tag) => tag.tag === "#review");
+		});
 
 		if (reviewNotes.length === 0) {
 			console.error("invalid length");
 			return;
 		}
 
-		const note = new Note(reviewNotes[0]!, this.app);
-		await note.mount(container);
+		const note = new Note(
+			reviewNotes[0]!,
+			this.app,
+			container,
+			async (file) => {
+				await this.app.vault.rename(file, `Archive/${file.name}`);
+				note.note = reviewNotes[1]!;
+			},
+			async (file) => {},
+			async (file) => {},
+		);
+
+		await note.mount();
 	}
 
 	async onClose() {

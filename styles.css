@@ -1,3 +1,21 @@
+.container {
+    touch-action: none;
+    background-color: red;
+}
+
+@keyframes enter {
+    from {
+        opacity: 0.7;
+        transform: translateY(-20%);
+        scale: 0.9;
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+        scale: 1;
+    }
+}
+
 .display-div {
     max-width: 20rem;
     height: 32rem;
@@ -12,6 +30,7 @@
     box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1); 
     border: 1 ;
     border-color: var(--background-secondary);
+    animation: enter 100ms ease-out;
 }
 
 [data-action="NONE"] {
